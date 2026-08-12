@@ -53,15 +53,15 @@ def check_health():
 
         if hf < HF_THRESHOLD and not _hf_alert_active:
             msg = (
-                f"\U0001F6A8 *HEALTH FACTOR WARNING*\n"
-                f"HF `{hf:.4f}` fell below threshold `{HF_THRESHOLD}`"
+                f"\U0001F6A8 *건강계수(HF) 경고*\n"
+                f"현재 HF `{hf:.4f}` — 임계값 `{HF_THRESHOLD}` 아래로 떨어졌습니다"
             )
             notifier.send_message(msg)
             _hf_alert_active = True
             print("Emergency HF alert sent!")
         elif hf >= HF_THRESHOLD and _hf_alert_active:
             notifier.send_message(
-                f"✅ HF recovered to `{hf:.4f}` (above `{HF_THRESHOLD}`)"
+                f"✅ 건강계수(HF) 회복 — 현재 `{hf:.4f}` (임계값 `{HF_THRESHOLD}` 이상)"
             )
             _hf_alert_active = False
     except Exception as e:

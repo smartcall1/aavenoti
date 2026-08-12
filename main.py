@@ -13,6 +13,11 @@ RPC_URL = os.getenv("RPC_URL", "https://rpc.monad.xyz")
 WALLET = os.getenv("WALLET_ADDRESS")
 TOKEN = os.getenv("TELEGRAM_TOKEN")
 CHAT_ID = os.getenv("TELEGRAM_CHAT_ID")
+# Emergency alerts can go to a separate bot/chat so the regular-report chat
+# can be muted without missing HF/APY warnings. Falls back to the main
+# bot/chat if not set, so this stays optional.
+EMERGENCY_TOKEN = os.getenv("TELEGRAM_EMERGENCY_TOKEN") or TOKEN
+EMERGENCY_CHAT_ID = os.getenv("TELEGRAM_EMERGENCY_CHAT_ID") or CHAT_ID
 REPORT_INTERVAL_MIN = int(os.getenv("REPORT_INTERVAL_MIN", 2))
 HF_THRESHOLD = float(os.getenv("HF_THRESHOLD", 1.1))
 HF_CHECK_INTERVAL_MIN = int(os.getenv("HF_CHECK_INTERVAL_MIN", 1))
@@ -21,6 +26,7 @@ APY_THRESHOLD = float(os.getenv("APY_THRESHOLD", 10))
 
 client = MonadMarketClient(RPC_URL)
 notifier = TelegramNotifier(TOKEN, CHAT_ID)
+emergency_notifier = TelegramNotifier(EMERGENCY_TOKEN, EMERGENCY_CHAT_ID)
 
 # Tracks whether we've already fired the emergency alert for the current
 # below-threshold streak, so we don't spam a message every check interval.
@@ -45,14 +51,14 @@ def send_report():
 
         net_apy = data["net_apy"]
         if net_apy < APY_THRESHOLD and not _apy_alert_active:
-            notifier.send_message(
+            emergency_notifier.send_message(
                 f"\U0001F4C9 Net APY Warning\n"
                 f"Net APY {net_apy:.2f}% fell below threshold {APY_THRESHOLD}%"
             )
             _apy_alert_active = True
             print("Emergency APY alert sent!")
         elif net_apy >= APY_THRESHOLD and _apy_alert_active:
-            notifier.send_message(
+            emergency_notifier.send_message(
                 f"✅ Net APY recovered to {net_apy:.2f}% (above {APY_THRESHOLD}%)"
             )
             _apy_alert_active = False
@@ -75,11 +81,11 @@ def check_health():
                 f"\U0001F6A8 HF Warning\n"
                 f"HF {hf:.4f} fell below threshold {HF_THRESHOLD}"
             )
-            notifier.send_message(msg)
+            emergency_notifier.send_message(msg)
             _hf_alert_active = True
             print("Emergency HF alert sent!")
         elif hf >= HF_THRESHOLD and _hf_alert_active:
-            notifier.send_message(
+            emergency_notifier.send_message(
                 f"✅ HF recovered to {hf:.4f} (above {HF_THRESHOLD})"
             )
             _hf_alert_active = False

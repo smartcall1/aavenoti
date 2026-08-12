@@ -38,13 +38,13 @@ def format_dashboard(data):
 
     if data["supplies"]:
         lines.append("")
-        lines.append("Supplies")
+        lines.append("\U0001F7E2 Supplies")
         for s in data["supplies"]:
             lines.extend(_supply_lines(s))
 
     if data["borrows"]:
         lines.append("")
-        lines.append("Borrows")
+        lines.append("\U0001F534 Borrows")
         for b in data["borrows"]:
             lines.extend(_borrow_lines(b))
 

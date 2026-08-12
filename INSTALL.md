@@ -4,6 +4,7 @@
 - **지갑 주소:** 감시할 공개 지갑 주소 (개인키 불필요)
 - **텔레그램 봇 토큰:** [@BotFather](https://t.me/botfather)에서 생성
 - **텔레그램 채팅 ID:** [@userinfobot](https://t.me/userinfobot) 등에서 확인
+- (선택) **긴급알림용 봇:** 정기 리포트와 별도 채팅방으로 분리하고 싶으면 [@BotFather](https://t.me/botfather)에서 봇을 하나 더 만들어 대화를 시작하고, 토큰/채팅ID를 `TELEGRAM_EMERGENCY_TOKEN`/`TELEGRAM_EMERGENCY_CHAT_ID`에 넣으세요. 그러면 정기 리포트 채팅방은 뮤트해두고 긴급알림 채팅방만 알림을 켜둘 수 있습니다.
 
 RPC는 기본값(`https://rpc.monad.xyz`, 공개 RPC)을 그대로 쓰면 됩니다.
 
@@ -30,6 +31,10 @@ RPC_URL=https://rpc.monad.xyz
 WALLET_ADDRESS=여기에_지갑_주소_입력
 TELEGRAM_TOKEN=여기에_텔레그램_토큰_입력
 TELEGRAM_CHAT_ID=여기에_채팅_ID_입력
+# 긴급알림(HF/APY 경고)을 다른 봇/채팅방으로 분리하고 싶으면 채우세요.
+# 비워두면 위 TELEGRAM_TOKEN/TELEGRAM_CHAT_ID로 긴급알림도 같이 갑니다.
+TELEGRAM_EMERGENCY_TOKEN=
+TELEGRAM_EMERGENCY_CHAT_ID=
 REPORT_INTERVAL_MIN=2
 HF_THRESHOLD=1.1
 HF_CHECK_INTERVAL_MIN=1

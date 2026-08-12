@@ -33,9 +33,13 @@ emergency_notifier = TelegramNotifier(EMERGENCY_TOKEN, EMERGENCY_CHAT_ID)
 _hf_alert_active = False
 _apy_alert_active = False
 
+# Net worth from the previous report cycle, so we can show the change
+# since last time. None until the first report has run.
+_last_net_worth = None
+
 
 def send_report():
-    global _apy_alert_active
+    global _apy_alert_active, _last_net_worth
 
     if not WALLET:
         print("Error: WALLET_ADDRESS is not set.")
@@ -43,7 +47,11 @@ def send_report():
 
     try:
         data = client.get_dashboard(WALLET)
-        msg = format_dashboard(data)
+        net_worth_delta = (
+            data["net_worth_usd"] - _last_net_worth if _last_net_worth is not None else None
+        )
+        _last_net_worth = data["net_worth_usd"]
+        msg = format_dashboard(data, net_worth_delta=net_worth_delta)
         print(f"[{time.strftime('%Y-%m-%d %H:%M:%S')}] "
               f"NW ${data['net_worth_usd']:,.2f}  HF {data['health_factor']:.2f}  "
               f"APY {data['net_apy']:.2f}%")
@@ -106,6 +114,12 @@ if __name__ == "__main__":
     print(f"HF Threshold: {HF_THRESHOLD} (checked every {HF_CHECK_INTERVAL_MIN} min)")
     print(f"APY Threshold: {APY_THRESHOLD}% (checked every report cycle)")
     print("--------------------------------------")
+
+    # Clears any leftover custom reply-keyboard from a previous bot that
+    # used this same chat (e.g. old Status/Funding/Stop/Kill menus).
+    emergency_notifier.send_message(
+        "\U0001F916 Monad Market bot connected.", silent=True, remove_keyboard=True
+    )
 
     send_report()
     check_health()

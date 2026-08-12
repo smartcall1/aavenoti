@@ -6,11 +6,18 @@ def _hf_status(hf):
     return "✅ Safe"
 
 
+def _net_worth_delta_str(delta):
+    if delta is None:
+        return ""
+    sign = "+" if delta >= 0 else "-"
+    return f" ({sign}${abs(delta):,.2f})"
+
+
 def _supply_lines(s):
     flag = "ON" if s["collateral"] else "OFF"
     return [
         f"{s['symbol']}  {s['balance']:,.2f}  (${s['balance_usd']:,.2f})",
-        f"  APY {s['apy']:.2f}%  Collateral {flag}",
+        f"  APY {s['apy']:.2f}%  (Collateral {flag})",
     ]
 
 
@@ -21,13 +28,15 @@ def _borrow_lines(b):
     ]
 
 
-def format_dashboard(data):
+def format_dashboard(data, net_worth_delta=None):
     hf = data["health_factor"]
     lines = [
         "\U0001F4CA Monad Market",
         "",
+        "*[SUMMARY]*",
         f"\U0001F4C8 Net APY {data['net_apy']:.2f}%",
-        f"\U0001F4B0 Net worth ${data['net_worth_usd']:,.2f}",
+        f"\U0001F4B0 Net worth ${data['net_worth_usd']:,.2f}"
+        f"{_net_worth_delta_str(net_worth_delta)}",
         f"❤️ HF {hf:.2f} ({_hf_status(hf)})",
     ]
 
@@ -38,13 +47,13 @@ def format_dashboard(data):
 
     if data["supplies"]:
         lines.append("")
-        lines.append("\U0001F7E2 Supplies")
+        lines.append("*[\U0001F7E2 Supplies]*")
         for s in data["supplies"]:
             lines.extend(_supply_lines(s))
 
     if data["borrows"]:
         lines.append("")
-        lines.append("\U0001F534 Borrows")
+        lines.append("*[\U0001F534 Borrows]*")
         for b in data["borrows"]:
             lines.extend(_borrow_lines(b))
 

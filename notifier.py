@@ -9,7 +9,7 @@ class TelegramNotifier:
             print("Warning: Telegram Token or Chat ID is missing.")
         self.base_url = f"https://api.telegram.org/bot{self.token}/sendMessage"
 
-    def send_message(self, text, silent=False):
+    def send_message(self, text, silent=False, remove_keyboard=False):
         if not self.token or not self.chat_id:
             print("Skip sending telegram: Token/ChatID missing")
             return False
@@ -20,6 +20,8 @@ class TelegramNotifier:
             "parse_mode": "Markdown",
             "disable_notification": silent,
         }
+        if remove_keyboard:
+            payload["reply_markup"] = {"remove_keyboard": True}
         try:
             response = requests.post(self.base_url, json=payload, timeout=10)
             response.raise_for_status()

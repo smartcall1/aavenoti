@@ -1,4 +1,5 @@
 import json
+from concurrent.futures import ThreadPoolExecutor
 from web3 import Web3
 
 SECONDS_PER_YEAR = 31536000
@@ -104,32 +105,63 @@ class MonadMarketClient:
         self.oracle = self.w3.eth.contract(
             address=Web3.to_checksum_address(self.ORACLE_ADDRESS), abi=ORACLE_ABI)
 
+    def get_health_factor(self, wallet_address):
+        user = Web3.to_checksum_address(wallet_address)
+        _collateral, _debt, _avail, _liq_th, _ltv, health_factor_raw = \
+            self.pool.functions.getUserAccountData(user).call()
+        return health_factor_raw / 1e18 if health_factor_raw < 1e35 else float('inf')
+
+    def _user_reserve_data(self, asset, user):
+        return self.data_provider.functions.getUserReserveData(asset, user).call()
+
+    def _held_asset_extra(self, asset):
+        decimals = self.data_provider.functions.getReserveConfigurationData(asset).call()[0]
+        price_usd = self.oracle.functions.getAssetPrice(asset).call() / BASE_UNIT
+        variable_borrow_rate = self.data_provider.functions.getReserveData(asset).call()[6]
+        return decimals, price_usd, variable_borrow_rate
+
     def get_dashboard(self, wallet_address):
         user = Web3.to_checksum_address(wallet_address)
 
-        total_collateral_base, total_debt_base, _avail, _liq_th, _ltv, health_factor_raw = \
-            self.pool.functions.getUserAccountData(user).call()
+        reserves = self.data_provider.functions.getAllReservesTokens().call()
+
+        # These per-reserve reads are independent, so fan them out in parallel —
+        # sequential calls against the public RPC take ~20s for a 12-asset market.
+        with ThreadPoolExecutor(max_workers=max(len(reserves), 1)) as pool:
+            account_future = pool.submit(self.pool.functions.getUserAccountData(user).call)
+            reserve_futures = {
+                asset: pool.submit(self._user_reserve_data, asset, user)
+                for _symbol, asset in reserves
+            }
+            total_collateral_base, total_debt_base, _avail, _liq_th, _ltv, health_factor_raw = \
+                account_future.result()
+            reserve_results = {asset: fut.result() for asset, fut in reserve_futures.items()}
 
         net_worth_usd = (total_collateral_base - total_debt_base) / BASE_UNIT
         health_factor = health_factor_raw / 1e18 if health_factor_raw < 1e35 else float('inf')
+
+        held = []
+        for symbol, asset in reserves:
+            (a_token_balance, stable_debt, variable_debt, _principal_stable,
+             _scaled_variable, _stable_rate, liquidity_rate, _stable_last_updated,
+             collateral_enabled) = reserve_results[asset]
+            total_debt_raw = stable_debt + variable_debt
+            if a_token_balance > 0 or total_debt_raw > 0:
+                held.append((symbol, asset, a_token_balance, total_debt_raw,
+                             liquidity_rate, collateral_enabled))
 
         supplies = []
         borrows = []
         supply_weighted_apy = 0.0
         borrow_weighted_apy = 0.0
 
-        reserves = self.data_provider.functions.getAllReservesTokens().call()
-        for symbol, asset in reserves:
-            (a_token_balance, stable_debt, variable_debt, _principal_stable,
-             _scaled_variable, _stable_rate, liquidity_rate, _stable_last_updated,
-             collateral_enabled) = self.data_provider.functions.getUserReserveData(asset, user).call()
+        with ThreadPoolExecutor(max_workers=max(len(held), 1)) as pool:
+            extra_futures = {asset: pool.submit(self._held_asset_extra, asset)
+                              for _symbol, asset, *_rest in held}
+            extras = {asset: fut.result() for asset, fut in extra_futures.items()}
 
-            total_debt_raw = stable_debt + variable_debt
-            if a_token_balance == 0 and total_debt_raw == 0:
-                continue
-
-            decimals = self.data_provider.functions.getReserveConfigurationData(asset).call()[0]
-            price_usd = self.oracle.functions.getAssetPrice(asset).call() / BASE_UNIT
+        for symbol, asset, a_token_balance, total_debt_raw, liquidity_rate, collateral_enabled in held:
+            decimals, price_usd, variable_borrow_rate = extras[asset]
 
             if a_token_balance > 0:
                 balance = a_token_balance / (10 ** decimals)
@@ -147,8 +179,6 @@ class MonadMarketClient:
             if total_debt_raw > 0:
                 debt = total_debt_raw / (10 ** decimals)
                 debt_usd = debt * price_usd
-                reserve_data = self.data_provider.functions.getReserveData(asset).call()
-                variable_borrow_rate = reserve_data[6]
                 borrow_apy = _apr_to_apy(variable_borrow_rate)
                 borrows.append({
                     "symbol": symbol,

@@ -16,6 +16,7 @@ CHAT_ID = os.getenv("TELEGRAM_CHAT_ID")
 REPORT_INTERVAL_MIN = int(os.getenv("REPORT_INTERVAL_MIN", 2))
 HF_THRESHOLD = float(os.getenv("HF_THRESHOLD", 1.1))
 HF_CHECK_INTERVAL_MIN = int(os.getenv("HF_CHECK_INTERVAL_MIN", 1))
+REPORT_SILENT = os.getenv("REPORT_SILENT", "true").lower() == "true"
 
 client = MonadMarketClient(RPC_URL)
 notifier = TelegramNotifier(TOKEN, CHAT_ID)
@@ -35,7 +36,7 @@ def send_report():
         msg = format_dashboard(data)
         print(f"[{time.strftime('%Y-%m-%d %H:%M:%S')}] "
               f"NW ${data['net_worth_usd']:,.2f}  HF {data['health_factor']:.2f}")
-        notifier.send_message(msg)
+        notifier.send_message(msg, silent=REPORT_SILENT)
     except Exception as e:
         print(f"Error in send_report: {e}")
 

@@ -34,6 +34,7 @@ REPORT_INTERVAL_MIN=2
 HF_THRESHOLD=1.1
 HF_CHECK_INTERVAL_MIN=1
 REPORT_SILENT=true
+APY_THRESHOLD=10
 ```
 
 `.env`는 `.gitignore`에 포함되어 있어 git에 커밋되지 않습니다.

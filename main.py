@@ -17,6 +17,7 @@ REPORT_INTERVAL_MIN = int(os.getenv("REPORT_INTERVAL_MIN", 2))
 HF_THRESHOLD = float(os.getenv("HF_THRESHOLD", 1.1))
 HF_CHECK_INTERVAL_MIN = int(os.getenv("HF_CHECK_INTERVAL_MIN", 1))
 REPORT_SILENT = os.getenv("REPORT_SILENT", "true").lower() == "true"
+APY_THRESHOLD = float(os.getenv("APY_THRESHOLD", 10))
 
 client = MonadMarketClient(RPC_URL)
 notifier = TelegramNotifier(TOKEN, CHAT_ID)
@@ -24,9 +25,12 @@ notifier = TelegramNotifier(TOKEN, CHAT_ID)
 # Tracks whether we've already fired the emergency alert for the current
 # below-threshold streak, so we don't spam a message every check interval.
 _hf_alert_active = False
+_apy_alert_active = False
 
 
 def send_report():
+    global _apy_alert_active
+
     if not WALLET:
         print("Error: WALLET_ADDRESS is not set.")
         return
@@ -35,8 +39,23 @@ def send_report():
         data = client.get_dashboard(WALLET)
         msg = format_dashboard(data)
         print(f"[{time.strftime('%Y-%m-%d %H:%M:%S')}] "
-              f"NW ${data['net_worth_usd']:,.2f}  HF {data['health_factor']:.2f}")
+              f"NW ${data['net_worth_usd']:,.2f}  HF {data['health_factor']:.2f}  "
+              f"APY {data['net_apy']:.2f}%")
         notifier.send_message(msg, silent=REPORT_SILENT)
+
+        net_apy = data["net_apy"]
+        if net_apy < APY_THRESHOLD and not _apy_alert_active:
+            notifier.send_message(
+                f"\U0001F4C9 *순APY 경고*\n"
+                f"현재 순APY `{net_apy:.2f}%` — 임계값 `{APY_THRESHOLD}%` 아래로 떨어졌습니다"
+            )
+            _apy_alert_active = True
+            print("Emergency APY alert sent!")
+        elif net_apy >= APY_THRESHOLD and _apy_alert_active:
+            notifier.send_message(
+                f"✅ 순APY 회복 — 현재 `{net_apy:.2f}%` (임계값 `{APY_THRESHOLD}%` 이상)"
+            )
+            _apy_alert_active = False
     except Exception as e:
         print(f"Error in send_report: {e}")
 
@@ -53,7 +72,7 @@ def check_health():
 
         if hf < HF_THRESHOLD and not _hf_alert_active:
             msg = (
-                f"\U0001F6A8 *건강계수(HF) 경고*\n"
+                f"\U0001F6A8 *HF 경고*\n"
                 f"현재 HF `{hf:.4f}` — 임계값 `{HF_THRESHOLD}` 아래로 떨어졌습니다"
             )
             notifier.send_message(msg)
@@ -61,7 +80,7 @@ def check_health():
             print("Emergency HF alert sent!")
         elif hf >= HF_THRESHOLD and _hf_alert_active:
             notifier.send_message(
-                f"✅ 건강계수(HF) 회복 — 현재 `{hf:.4f}` (임계값 `{HF_THRESHOLD}` 이상)"
+                f"✅ HF 회복 — 현재 `{hf:.4f}` (임계값 `{HF_THRESHOLD}` 이상)"
             )
             _hf_alert_active = False
     except Exception as e:
@@ -79,6 +98,7 @@ if __name__ == "__main__":
     print(f"Target Wallet: {WALLET}")
     print(f"Report Interval: {REPORT_INTERVAL_MIN} min")
     print(f"HF Threshold: {HF_THRESHOLD} (checked every {HF_CHECK_INTERVAL_MIN} min)")
+    print(f"APY Threshold: {APY_THRESHOLD}% (checked every report cycle)")
     print("--------------------------------------")
 
     send_report()

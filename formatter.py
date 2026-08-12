@@ -29,7 +29,7 @@ def format_dashboard(data):
         "\U0001F4CA *Monad Market*",
         f"\U0001F4B0 순자산 `${data['net_worth_usd']:,.2f}`",
         f"\U0001F4C8 순APY `{data['net_apy']:.2f}%`   "
-        f"❤️ 건강계수 `{hf:.2f}` ({_hf_status(hf)})",
+        f"❤️ HF `{hf:.2f}` ({_hf_status(hf)})",
     ]
 
     if not data["supplies"] and not data["borrows"]:
